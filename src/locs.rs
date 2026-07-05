@@ -3,19 +3,19 @@ use std::io::Read;
 
 use flate2::read::GzDecoder;
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tar::Archive;
 
 use crate::error::AppError;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LocsChild {
     File(u64),
     Dir(Locs),
 }
 
-#[derive(Serialize, Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct Locs {
     pub loc: u64,
     #[serde(rename = "locByLangs", skip_serializing_if = "Option::is_none")]

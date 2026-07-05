@@ -73,6 +73,8 @@ services:
     env_file: .env
     ports:
       - "3000:3000"
+    volumes:
+      - ./data:/app/data
 ```
 
 **2. Create `.env`** (see [.env.example](.env.example), every var is optional)
@@ -88,8 +90,9 @@ this repo (`docker compose up -d --build`).
 
 ## Caching
 
-Results are cached in-memory per `(platform, owner, repo, branch, filter)` for 24 hours, unbounded
-in size. The cache is process-local and lost on restart — nothing is persisted to disk.
+Results are cached per `(platform, owner, repo, branch, filter)` for 24 hours: an in-memory layer
+for hot lookups, backed by a SQLite database (`data/cache.sqlite`) so entries survive restarts.
+Expired rows are swept opportunistically on writes.
 
 ## Notes
 

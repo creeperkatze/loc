@@ -1,3 +1,4 @@
+mod cache;
 mod error;
 mod locs;
 mod platform;
@@ -10,9 +11,8 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use moka::future::Cache;
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
@@ -24,16 +24,16 @@ const CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60); // 1 day
 #[derive(Clone)]
 struct AppState {
     platform_client: Arc<ForgeClient>,
-    cache: Cache<CacheKey, Arc<locs::Locs>>,
+    cache: cache::Cache,
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
-struct CacheKey {
-    platform: Platform,
-    owner: String,
-    repo: String,
-    branch: String,
-    filter: Option<String>,
+#[derive(Serialize)]
+struct CacheKey<'a> {
+    platform: &'a str,
+    owner: &'a str,
+    repo: &'a str,
+    branch: &'a str,
+    filter: &'a Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -57,9 +57,13 @@ async fn main() {
         )
         .init();
 
+    let cache = cache::Cache::open("data/cache.sqlite", CACHE_TTL)
+        .await
+        .expect("failed to open cache database");
+
     let state = AppState {
         platform_client: Arc::new(ForgeClient::new()),
-        cache: Cache::builder().time_to_live(CACHE_TTL).build(),
+        cache,
     };
 
     let app = Router::new()
@@ -120,13 +124,14 @@ async fn get_locs_cached(
     let branch = resolve_branch(state, platform, &owner, &repo, branch).await?;
     let filters = locs::parse_filters(filter.as_deref())?;
 
-    let key = CacheKey {
-        platform,
-        owner: owner.clone(),
-        repo: repo.clone(),
-        branch: branch.clone(),
-        filter,
-    };
+    let key = serde_json::to_string(&CacheKey {
+        platform: platform.as_str(),
+        owner: &owner,
+        repo: &repo,
+        branch: &branch,
+        filter: &filter,
+    })
+    .expect("serializing cache key");
 
     if let Some(cached) = state.cache.get(&key).await {
         tracing::debug!(platform = platform.as_str(), %owner, %repo, %branch, "cache hit");
