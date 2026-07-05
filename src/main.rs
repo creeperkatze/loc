@@ -4,17 +4,20 @@ mod inflight;
 mod locs;
 mod platform;
 
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
+use std::time::{Duration, Instant};
 
 use axum::{
     extract::{Path, Query, State},
     routing::get,
     Json, Router,
 };
+use futures_util::StreamExt;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tokio_util::io::{StreamReader, SyncIoBridge};
 use tower_http::trace::TraceLayer;
 
 use error::AppError;
@@ -145,15 +148,41 @@ async fn get_locs_cached(
     let job_state = state.clone();
     let job_key = key.clone();
     let job = async move {
-        let tarball = job_state
+        let response = job_state
             .platform_client
             .download_tarball(platform, &owner, &repo, &branch)
             .await?;
 
-        let start = std::time::Instant::now();
-        let result = compute_locs_blocking(tarball, filters).await?;
+        let start = Instant::now();
 
-        tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, loc = result.loc, duration_ms = start.elapsed().as_millis(), "computed locs");
+        // Tallies bytes and time-to-first-byte across the stream so the log line below can show
+        // whether decoding is actually overlapping the download rather than just buffering it.
+        let bytes_read = Arc::new(AtomicU64::new(0));
+        let first_byte_at: Arc<OnceLock<Instant>> = Arc::new(OnceLock::new());
+        let counted_stream = {
+            let bytes_read = Arc::clone(&bytes_read);
+            let first_byte_at = Arc::clone(&first_byte_at);
+            response.bytes_stream().map(move |chunk| {
+                if let Ok(chunk) = &chunk {
+                    first_byte_at.get_or_init(Instant::now);
+                    bytes_read.fetch_add(chunk.len() as u64, Ordering::Relaxed);
+                }
+                chunk.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+            })
+        };
+        let reader = SyncIoBridge::new(StreamReader::new(counted_stream));
+
+        let result = compute_locs_blocking(reader, filters).await?;
+
+        let ttfb_ms = first_byte_at.get().map(|t| t.duration_since(start).as_millis());
+        tracing::info!(
+            platform = platform.as_str(), %owner, %repo, %branch,
+            loc = result.loc,
+            bytes = bytes_read.load(Ordering::Relaxed),
+            ttfb_ms = ?ttfb_ms,
+            duration_ms = start.elapsed().as_millis(),
+            "streamed and processed tarball"
+        );
 
         let result = Arc::new(result);
         job_state.cache.insert(job_key, Arc::clone(&result)).await;
@@ -164,12 +193,12 @@ async fn get_locs_cached(
     state.inflight.run(key, job).await
 }
 
-// Decompressing and walking a large tarball is CPU/IO-heavy synchronous work; run it on the blocking thread pool so it doesn't stall the async runtime's worker threads for other in-flight requests.
+// Reading the stream, decompressing, and walking the tarball all block synchronously; run them on the blocking thread pool so they don't stall the async runtime's worker threads for other in-flight requests.
 async fn compute_locs_blocking(
-    tarball: Vec<u8>,
+    tarball: impl std::io::Read + Send + 'static,
     filters: Vec<Regex>,
 ) -> Result<locs::Locs, AppError> {
-    tokio::task::spawn_blocking(move || locs::compute_locs(&tarball, &filters))
+    tokio::task::spawn_blocking(move || locs::compute_locs(tarball, &filters))
         .await
         .map_err(|e| AppError::Upstream(format!("locs computation panicked: {e}")))?
 }

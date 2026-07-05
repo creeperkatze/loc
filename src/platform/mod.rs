@@ -72,26 +72,22 @@ impl ForgeClient {
         Ok(branch)
     }
 
-    // Downloads a repo's source tree at a given branch as a gzipped tarball.
+    // Opens a repo's source tree at a given branch as a gzipped tarball stream; the caller decodes it as bytes arrive instead of buffering the whole download first.
     pub async fn download_tarball(
         &self,
         platform: Platform,
         owner: &str,
         repo: &str,
         branch: &str,
-    ) -> Result<Vec<u8>, AppError> {
-        tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, "downloading tarball");
-        let start = Instant::now();
+    ) -> Result<reqwest::Response, AppError> {
+        tracing::debug!(platform = platform.as_str(), %owner, %repo, %branch, "opening tarball stream");
 
-        let bytes = match platform {
+        match platform {
             Platform::GitHub => github::download_tarball(&self.client, owner, repo, branch).await,
             Platform::Codeberg => codeberg::download_tarball(&self.client, owner, repo, branch).await,
             Platform::GitLab => gitlab::download_tarball(&self.client, owner, repo, branch).await,
             Platform::Bitbucket => bitbucket::download_tarball(&self.client, owner, repo, branch).await,
-        }?;
-
-        tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, bytes = bytes.len(), duration_ms = start.elapsed().as_millis(), "downloaded tarball");
-        Ok(bytes)
+        }
     }
 }
 
@@ -121,10 +117,11 @@ async fn fetch_json(
         .map_err(|e| AppError::Upstream(e.to_string()))
 }
 
-async fn fetch_bytes(
+// Like `fetch_json`, but hands back the still-streaming response instead of buffering the body, so the caller can decode it as it arrives.
+async fn fetch_stream(
     request: reqwest::RequestBuilder,
     not_found: impl FnOnce() -> String,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<reqwest::Response, AppError> {
     let response = request
         .send()
         .await
@@ -140,10 +137,5 @@ async fn fetch_bytes(
         )));
     }
 
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|e| AppError::Upstream(e.to_string()))?;
-
-    Ok(bytes.to_vec())
+    Ok(response)
 }

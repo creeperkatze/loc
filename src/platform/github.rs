@@ -1,6 +1,6 @@
 use crate::error::AppError;
 
-use super::{fetch_bytes, fetch_json};
+use super::{fetch_json, fetch_stream};
 
 const TOKEN_ENV: &str = "GITHUB_TOKEN";
 
@@ -34,10 +34,10 @@ pub async fn download_tarball(
     owner: &str,
     repo: &str,
     branch: &str,
-) -> Result<Vec<u8>, AppError> {
+) -> Result<reqwest::Response, AppError> {
     let url = format!("https://codeload.github.com/{owner}/{repo}/tar.gz/refs/heads/{branch}");
 
-    fetch_bytes(auth(client.get(&url)), || {
+    fetch_stream(auth(client.get(&url)), || {
         format!("branch '{branch}' not found in {owner}/{repo} on github")
     })
     .await

@@ -30,8 +30,8 @@ enum BuildNode {
     Dir(HashMap<String, BuildNode>),
 }
 
-// Downloads and walks a repo's tarball, counting lines of code per file, aggregated into a directory tree broken down by extension.
-pub fn compute_locs(tarball: &[u8], filters: &[Regex]) -> Result<Locs, AppError> {
+// Streams and walks a repo's tarball, counting lines of code per file, aggregated into a directory tree broken down by extension.
+pub fn compute_locs(tarball: impl Read, filters: &[Regex]) -> Result<Locs, AppError> {
     let decoder = GzDecoder::new(tarball);
     let mut archive = Archive::new(decoder);
 
