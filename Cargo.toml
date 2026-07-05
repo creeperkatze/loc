@@ -2,6 +2,7 @@
 name = "loctopus"
 version = "1.0.5"
 edition = "2021"
+license = "AGPL-3.0"
 
 [package.metadata.release]
 publish = false

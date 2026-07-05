@@ -3,13 +3,11 @@
 A minimal backend counting lines of code for a public repo on GitHub, Codeberg, GitLab, or
 Bitbucket.
 
-[![GitHub Release](https://img.shields.io/github/v/release/creeperkatze/loc)](https://github.com/creeperkatze/loc/releases)
 [![GitHub Issues](https://img.shields.io/github/issues/creeperkatze/loc)](https://github.com/creeperkatze/loc/issues)
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/creeperkatze/loc)](https://github.com/creeperkatze/loc/pulls)
 [![GitHub Repo stars](https://img.shields.io/github/stars/creeperkatze/loc?style=flat)](https://github.com/creeperkatze/loc/stargazers)
 
-[🐳 GHCR Package](https://github.com/creeperkatze/loc/pkgs/container/loctopus) •
-[📝 Changelog](https://github.com/creeperkatze/loc/releases)
+[🐳 Package](https://github.com/creeperkatze/loc/pkgs/container/loctopus)
 
 It downloads the repo's source as a tarball, walks the files, and builds a directory tree of line
 counts broken down by file extension.
