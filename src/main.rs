@@ -1,5 +1,6 @@
 mod cache;
 mod error;
+mod inflight;
 mod locs;
 mod platform;
 
@@ -25,6 +26,7 @@ const CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60); // 1 day
 struct AppState {
     platform_client: Arc<ForgeClient>,
     cache: cache::Cache,
+    inflight: inflight::Inflight,
 }
 
 #[derive(Serialize)]
@@ -64,6 +66,7 @@ async fn main() {
     let state = AppState {
         platform_client: Arc::new(ForgeClient::new()),
         cache,
+        inflight: inflight::Inflight::default(),
     };
 
     let app = Router::new()
@@ -138,10 +141,11 @@ async fn get_locs_cached(
         return Ok(cached);
     }
 
-    // Run on an independent task so a client disconnecting mid-request doesn't cancel the work: the repo still gets downloaded, processed, and cached either way.
-    let state = state.clone();
-    let handle = tokio::spawn(async move {
-        let tarball = state
+    // Runs to completion via Inflight even if this request is cancelled; concurrent requests for the same key join it instead of downloading twice.
+    let job_state = state.clone();
+    let job_key = key.clone();
+    let job = async move {
+        let tarball = job_state
             .platform_client
             .download_tarball(platform, &owner, &repo, &branch)
             .await?;
@@ -152,14 +156,12 @@ async fn get_locs_cached(
         tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, loc = result.loc, duration_ms = start.elapsed().as_millis(), "computed locs");
 
         let result = Arc::new(result);
-        state.cache.insert(key, Arc::clone(&result)).await;
+        job_state.cache.insert(job_key, Arc::clone(&result)).await;
 
-        Ok::<Arc<locs::Locs>, AppError>(result)
-    });
+        Ok(result)
+    };
 
-    handle
-        .await
-        .map_err(|e| AppError::Upstream(format!("locs task panicked: {e}")))?
+    state.inflight.run(key, job).await
 }
 
 // Decompressing and walking a large tarball is CPU/IO-heavy synchronous work; run it on the blocking thread pool so it doesn't stall the async runtime's worker threads for other in-flight requests.

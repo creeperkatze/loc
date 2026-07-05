@@ -846,6 +846,7 @@ version = "1.0.3"
 dependencies = [
  "axum",
  "flate2",
+ "futures-util",
  "moka",
  "regex",
  "reqwest",

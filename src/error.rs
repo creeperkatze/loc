@@ -1,6 +1,7 @@
 use axum::{http::StatusCode, response::IntoResponse, response::Response, Json};
 use serde_json::json;
 
+#[derive(Clone)]
 pub enum AppError {
     NotFound(String),
     BadRequest(String),

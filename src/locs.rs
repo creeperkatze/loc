@@ -83,7 +83,7 @@ pub fn compute_locs(tarball: &[u8], filters: &[Regex]) -> Result<Locs, AppError>
             continue;
         }
 
-        let loc = String::from_utf8_lossy(&content).lines().count() as u64;
+        let loc = count_lines(&content);
 
         insert(&mut root, &components, loc, lang);
     }
@@ -157,6 +157,20 @@ fn extension_key(filename: &str) -> String {
 fn is_binary(content: &[u8]) -> bool {
     let sample_len = content.len().min(8000);
     content[..sample_len].contains(&0)
+}
+
+// Counts lines like `str::lines()` would, but scanning raw bytes instead of paying for a UTF-8 validating copy of the whole file.
+fn count_lines(content: &[u8]) -> u64 {
+    if content.is_empty() {
+        return 0;
+    }
+
+    let newlines = content.iter().filter(|&&b| b == b'\n').count() as u64;
+    if content[content.len() - 1] == b'\n' {
+        newlines
+    } else {
+        newlines + 1
+    }
 }
 
 pub fn parse_filters(filter: Option<&str>) -> Result<Vec<Regex>, AppError> {

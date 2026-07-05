@@ -21,3 +21,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower-http = { version = "0.6", features = ["trace"] }
 moka = { version = "0.12", features = ["future"] }
 sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
