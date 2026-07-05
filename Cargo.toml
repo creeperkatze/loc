@@ -3,6 +3,10 @@ name = "loc"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata.release]
+publish = false
+tag-name = "v{{version}}"
+
 [dependencies]
 axum = "0.7"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

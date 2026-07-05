@@ -1,2 +1,5 @@
 [alias]
 dev = "watch -x run"
+release-patch = "release patch --execute"
+release-minor = "release minor --execute"
+release-major = "release major --execute"

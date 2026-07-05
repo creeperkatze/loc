@@ -59,6 +59,33 @@ Same query params as above, plus `format=human` to abbreviate the count (e.g. `1
 { "schemaVersion": 1, "label": "lines", "message": "42", "cacheSeconds": 86400 }
 ```
 
+## Deploy
+
+Published to GHCR on every `v*` tag push. On your VPS:
+
+**1. Create `docker-compose.yml`**
+
+```yaml
+services:
+  loc:
+    image: ghcr.io/creeperkatze/loc:latest
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "3000:3000"
+```
+
+**2. Create `.env`** (see [.env.example](.env.example), every var is optional)
+
+**3. Start**
+
+```bash
+docker compose up -d
+```
+
+To build and run locally instead of pulling the published image, use the `docker-compose.yml` in
+this repo (`docker compose up -d --build`).
+
 ## Caching
 
 Results are cached in-memory per `(platform, owner, repo, branch, filter)` for 24 hours, unbounded
