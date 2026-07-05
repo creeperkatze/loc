@@ -15,9 +15,9 @@ FROM debian:bookworm-slim AS runner
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/loc ./loc
+COPY --from=builder /app/target/release/loctopus ./loctopus
 
 ENV PORT=3000
 EXPOSE 3000
 
-CMD ["./loc"]
+CMD ["./loctopus"]

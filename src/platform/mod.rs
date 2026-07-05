@@ -44,7 +44,7 @@ pub struct ForgeClient {
 impl ForgeClient {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
-            .user_agent("loc")
+            .user_agent(concat!("creeperkatze/loctopus/", env!("CARGO_PKG_VERSION")))
             .build()
             .expect("failed to build http client");
 

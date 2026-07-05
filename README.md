@@ -1,12 +1,20 @@
-# loc
+# loctopus
 
 A minimal backend counting lines of code for a public repo on GitHub, Codeberg, GitLab, or
 Bitbucket.
 
+[![GitHub Release](https://img.shields.io/github/v/release/creeperkatze/loc)](https://github.com/creeperkatze/loc/releases)
+[![GitHub Issues](https://img.shields.io/github/issues/creeperkatze/loc)](https://github.com/creeperkatze/loc/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/creeperkatze/loc)](https://github.com/creeperkatze/loc/pulls)
+[![GitHub Repo stars](https://img.shields.io/github/stars/creeperkatze/loc?style=flat)](https://github.com/creeperkatze/loc/stargazers)
+
+[🐳 GHCR Package](https://github.com/creeperkatze/loc/pkgs/container/loctopus) •
+[📝 Changelog](https://github.com/creeperkatze/loc/releases)
+
 It downloads the repo's source as a tarball, walks the files, and builds a directory tree of line
 counts broken down by file extension.
 
-## Run
+## 🚀 Run
 
 ```bash
 cargo run
@@ -24,7 +32,7 @@ Listens on `http://0.0.0.0:3000` by default (override with the `PORT` env var). 
 access private repos you have access to. Set `RUST_LOG=debug` for more verbose logging (defaults to
 `info`).
 
-## API
+## 📖 API
 
 `:platform` is `github`, `codeberg`, `gitlab`, or `bitbucket`.
 
@@ -33,8 +41,8 @@ access private repos you have access to. Set `RUST_LOG=debug` for more verbose l
 Returns the full line-count tree, e.g. `/github/modrinth/code` or `/codeberg/ziglang/zig`.
 
 Query params:
-- `branch` — defaults to the repo's default branch.
-- `filter` — comma-separated regexes matched against each file's extension key (e.g. `.ts$,.tsx$`)
+- `branch`: defaults to the repo's default branch.
+- `filter`: comma-separated regexes matched against each file's extension key (e.g. `.ts$,.tsx$`)
   to only count matching files.
 
 ```json
@@ -59,7 +67,7 @@ Same query params as above, plus `format=human` to abbreviate the count (e.g. `1
 { "schemaVersion": 1, "label": "lines", "message": "42", "cacheSeconds": 86400 }
 ```
 
-## Deploy
+## 🐳 Deploy
 
 Published to GHCR on every `v*` tag push. On your VPS:
 
@@ -67,8 +75,8 @@ Published to GHCR on every `v*` tag push. On your VPS:
 
 ```yaml
 services:
-  loc:
-    image: ghcr.io/creeperkatze/loc:latest
+  loctopus:
+    image: ghcr.io/creeperkatze/loctopus:latest
     restart: unless-stopped
     env_file: .env
     ports:
@@ -88,13 +96,17 @@ docker compose up -d
 To build and run locally instead of pulling the published image, use the `docker-compose.yml` in
 this repo (`docker compose up -d --build`).
 
-## Caching
+## 💾 Caching
 
 Results are cached per `(platform, owner, repo, branch, filter)` for 24 hours: an in-memory layer
 for hot lookups, backed by a SQLite database (`data/cache.sqlite`) so entries survive restarts.
 Expired rows are swept opportunistically on writes.
 
-## Notes
+## 📝 Notes
 
 This is intentionally minimal: no rate limiting, no repo size limits, and binary files are skipped
 via a simple null-byte heuristic rather than full content-type detection.
+
+## 📜 License
+
+AGPL-3.0
