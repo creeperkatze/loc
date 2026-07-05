@@ -132,9 +132,11 @@ async fn get_locs_cached(
         .platform_client
         .download_tarball(platform, &owner, &repo, &branch)
         .await?;
+
+    let start = std::time::Instant::now();
     let result = compute_locs_blocking(tarball, filters).await?;
 
-    tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, loc = result.loc, "computed locs");
+    tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, loc = result.loc, duration_ms = start.elapsed().as_millis(), "computed locs");
 
     let result = Arc::new(result);
     state.cache.insert(key, Arc::clone(&result)).await;

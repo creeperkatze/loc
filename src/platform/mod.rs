@@ -3,6 +3,8 @@ mod codeberg;
 mod github;
 mod gitlab;
 
+use std::time::Instant;
+
 use crate::error::AppError;
 
 // A git hosting platform we know how to talk to. Each variant's URL building, auth, and response parsing lives in its own submodule.
@@ -57,6 +59,7 @@ impl ForgeClient {
         repo: &str,
     ) -> Result<String, AppError> {
         tracing::debug!(platform = platform.as_str(), %owner, %repo, "fetching default branch");
+        let start = Instant::now();
 
         let branch = match platform {
             Platform::GitHub => github::default_branch(&self.client, owner, repo).await,
@@ -65,7 +68,7 @@ impl ForgeClient {
             Platform::Bitbucket => bitbucket::default_branch(&self.client, owner, repo).await,
         }?;
 
-        tracing::debug!(platform = platform.as_str(), %owner, %repo, %branch, "resolved default branch");
+        tracing::debug!(platform = platform.as_str(), %owner, %repo, %branch, duration_ms = start.elapsed().as_millis(), "resolved default branch");
         Ok(branch)
     }
 
@@ -78,6 +81,7 @@ impl ForgeClient {
         branch: &str,
     ) -> Result<Vec<u8>, AppError> {
         tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, "downloading tarball");
+        let start = Instant::now();
 
         let bytes = match platform {
             Platform::GitHub => github::download_tarball(&self.client, owner, repo, branch).await,
@@ -86,7 +90,7 @@ impl ForgeClient {
             Platform::Bitbucket => bitbucket::download_tarball(&self.client, owner, repo, branch).await,
         }?;
 
-        tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, bytes = bytes.len(), "downloaded tarball");
+        tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, bytes = bytes.len(), duration_ms = start.elapsed().as_millis(), "downloaded tarball");
         Ok(bytes)
     }
 }
