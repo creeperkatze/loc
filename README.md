@@ -1,4 +1,4 @@
-# loctopus
+# Loctopus
 
 A minimal backend counting lines of code for a public repo on GitHub, Codeberg, GitLab, or
 Bitbucket.
