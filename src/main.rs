@@ -1,25 +1,39 @@
 mod error;
-mod github;
 mod locs;
+mod platform;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     extract::{Path, Query, State},
     routing::get,
     Json, Router,
 };
+use moka::future::Cache;
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::json;
 use tower_http::trace::TraceLayer;
 
 use error::AppError;
-use github::GitHubClient;
+use platform::{ForgeClient, Platform};
+
+const CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60); // 1 day
 
 #[derive(Clone)]
 struct AppState {
-    github: Arc<GitHubClient>,
+    platform_client: Arc<ForgeClient>,
+    cache: Cache<CacheKey, Arc<locs::Locs>>,
+}
+
+#[derive(Clone, Hash, Eq, PartialEq)]
+struct CacheKey {
+    platform: Platform,
+    owner: String,
+    repo: String,
+    branch: String,
+    filter: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -44,12 +58,13 @@ async fn main() {
         .init();
 
     let state = AppState {
-        github: Arc::new(GitHubClient::new()),
+        platform_client: Arc::new(ForgeClient::new()),
+        cache: Cache::builder().time_to_live(CACHE_TTL).build(),
     };
 
     let app = Router::new()
-        .route("/:owner/:repo/locs", get(get_locs))
-        .route("/:owner/:repo/badge", get(get_badge))
+        .route("/:platform/:owner/:repo", get(get_locs))
+        .route("/:platform/:owner/:repo/badge", get(get_badge))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
@@ -67,21 +82,67 @@ async fn main() {
     axum::serve(listener, app).await.expect("server error");
 }
 
+fn parse_platform(platform: &str) -> Result<Platform, AppError> {
+    Platform::parse(platform).ok_or_else(|| {
+        AppError::NotFound(format!(
+            "unsupported platform '{platform}' (expected 'github', 'codeberg', 'gitlab', or 'bitbucket')"
+        ))
+    })
+}
+
 async fn resolve_branch(
     state: &AppState,
+    platform: Platform,
     owner: &str,
     repo: &str,
     branch: Option<String>,
 ) -> Result<String, AppError> {
     match branch {
         Some(branch) => Ok(branch),
-        None => state.github.default_branch(owner, repo).await,
+        None => state.platform_client.default_branch(platform, owner, repo).await,
     }
 }
 
-/// Decompressing and walking a large tarball is CPU/IO-heavy synchronous
-/// work; run it on the blocking thread pool so it doesn't stall the async
-/// runtime's worker threads for other in-flight requests.
+// Resolves platform/owner/repo/branch/filter to a `Locs` tree, serving from the in-memory TTL cache when possible and populating it on a miss.
+async fn get_locs_cached(
+    state: &AppState,
+    platform: Platform,
+    owner: String,
+    repo: String,
+    branch: Option<String>,
+    filter: Option<String>,
+) -> Result<Arc<locs::Locs>, AppError> {
+    let branch = resolve_branch(state, platform, &owner, &repo, branch).await?;
+    let filters = locs::parse_filters(filter.as_deref())?;
+
+    let key = CacheKey {
+        platform,
+        owner: owner.clone(),
+        repo: repo.clone(),
+        branch: branch.clone(),
+        filter,
+    };
+
+    if let Some(cached) = state.cache.get(&key).await {
+        tracing::debug!(platform = platform.as_str(), %owner, %repo, %branch, "cache hit");
+        return Ok(cached);
+    }
+
+    let tarball = state
+        .platform_client
+        .download_tarball(platform, &owner, &repo, &branch)
+        .await?;
+    let result = compute_locs_blocking(tarball, filters).await?;
+
+    tracing::info!(platform = platform.as_str(), %owner, %repo, %branch, loc = result.loc, "computed locs");
+
+    let result = Arc::new(result);
+    state.cache.insert(key, Arc::clone(&result)).await;
+
+    Ok(result)
+}
+
+// Decompressing and walking a large tarball is CPU/IO-heavy synchronous work; run it on the blocking thread pool so it doesn't stall the async runtime's worker threads for other in-flight requests.
 async fn compute_locs_blocking(tarball: Vec<u8>, filters: Vec<Regex>) -> Result<locs::Locs, AppError> {
     tokio::task::spawn_blocking(move || locs::compute_locs(&tarball, &filters))
         .await
@@ -90,31 +151,21 @@ async fn compute_locs_blocking(tarball: Vec<u8>, filters: Vec<Regex>) -> Result<
 
 async fn get_locs(
     State(state): State<AppState>,
-    Path((owner, repo)): Path<(String, String)>,
+    Path((platform, owner, repo)): Path<(String, String, String)>,
     Query(query): Query<LocsQuery>,
-) -> Result<Json<locs::Locs>, AppError> {
-    let branch = resolve_branch(&state, &owner, &repo, query.branch).await?;
-    let filters = locs::parse_filters(query.filter.as_deref())?;
-
-    let tarball = state.github.download_tarball(&owner, &repo, &branch).await?;
-    let result = compute_locs_blocking(tarball, filters).await?;
-
-    tracing::info!(%owner, %repo, %branch, loc = result.loc, "computed locs");
+) -> Result<Json<Arc<locs::Locs>>, AppError> {
+    let platform = parse_platform(&platform)?;
+    let result = get_locs_cached(&state, platform, owner, repo, query.branch, query.filter).await?;
     Ok(Json(result))
 }
 
 async fn get_badge(
     State(state): State<AppState>,
-    Path((owner, repo)): Path<(String, String)>,
+    Path((platform, owner, repo)): Path<(String, String, String)>,
     Query(query): Query<BadgeQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let branch = resolve_branch(&state, &owner, &repo, query.branch).await?;
-    let filters = locs::parse_filters(query.filter.as_deref())?;
-
-    let tarball = state.github.download_tarball(&owner, &repo, &branch).await?;
-    let result = compute_locs_blocking(tarball, filters).await?;
-
-    tracing::info!(%owner, %repo, %branch, loc = result.loc, "computed locs for badge");
+    let platform = parse_platform(&platform)?;
+    let result = get_locs_cached(&state, platform, owner, repo, query.branch, query.filter).await?;
 
     let message = if query.format.as_deref() == Some("human") {
         locs::humanize(result.loc)
@@ -126,6 +177,6 @@ async fn get_badge(
         "schemaVersion": 1,
         "label": "lines",
         "message": message,
-        "cacheSeconds": 15 * 60,
+        "cacheSeconds": CACHE_TTL.as_secs(),
     })))
 }

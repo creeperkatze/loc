@@ -24,14 +24,13 @@ pub struct Locs {
     pub children: Option<HashMap<String, LocsChild>>,
 }
 
-/// Mutable tree used while walking the tarball, before totals are aggregated.
+// Mutable tree used while walking the tarball, before totals are aggregated.
 enum BuildNode {
     File { loc: u64, lang: String },
     Dir(HashMap<String, BuildNode>),
 }
 
-/// Downloads and walks a repo's tarball, counting lines of code per file,
-/// aggregated into a directory tree broken down by extension.
+// Downloads and walks a repo's tarball, counting lines of code per file, aggregated into a directory tree broken down by extension.
 pub fn compute_locs(tarball: &[u8], filters: &[Regex]) -> Result<Locs, AppError> {
     let decoder = GzDecoder::new(tarball);
     let mut archive = Archive::new(decoder);
@@ -146,9 +145,7 @@ fn finalize(children: HashMap<String, BuildNode>) -> Locs {
     }
 }
 
-/// Extracts the "language key" for a file: its lowercased extension (with
-/// leading dot), or the whole filename for extension-less/dotfiles (e.g.
-/// "Dockerfile", ".gitignore"), matching ghloc's convention.
+// Extracts the "language key" for a file: its lowercased extension (with leading dot), or the whole filename for extension-less/dotfiles (e.g. "Dockerfile", ".gitignore"), matching ghloc's convention.
 fn extension_key(filename: &str) -> String {
     match filename.rfind('.') {
         Some(pos) if pos > 0 => filename[pos..].to_lowercase(),
@@ -156,7 +153,7 @@ fn extension_key(filename: &str) -> String {
     }
 }
 
-/// Simple binary-file heuristic: a NUL byte anywhere in the first few KB.
+// Simple binary-file heuristic: a NUL byte anywhere in the first few KB.
 fn is_binary(content: &[u8]) -> bool {
     let sample_len = content.len().min(8000);
     content[..sample_len].contains(&0)

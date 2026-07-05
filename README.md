@@ -1,9 +1,10 @@
 # loc
 
-A minimal backend counting lines of code for a public GitHub repo.
+A minimal backend counting lines of code for a public repo on GitHub, Codeberg, GitLab, or
+Bitbucket.
 
-It downloads the repo's source as a tarball from GitHub, walks the files, and builds a directory
-tree of line counts broken down by file extension.
+It downloads the repo's source as a tarball, walks the files, and builds a directory tree of line
+counts broken down by file extension.
 
 ## Run
 
@@ -19,14 +20,17 @@ cargo dev
 ```
 
 Listens on `http://0.0.0.0:3000` by default (override with the `PORT` env var). Optionally set
-`GITHUB_TOKEN` to raise GitHub's API/rate limits and access private repos you have access to. Set
-`RUST_LOG=debug` for more verbose logging (defaults to `info`).
+`GITHUB_TOKEN` / `CODEBERG_TOKEN` / `GITLAB_TOKEN` / `BITBUCKET_TOKEN` to raise API rate limits and
+access private repos you have access to. Set `RUST_LOG=debug` for more verbose logging (defaults to
+`info`).
 
 ## API
 
-### `GET /:owner/:repo/locs`
+`:platform` is `github`, `codeberg`, `gitlab`, or `bitbucket`.
 
-Returns the full line-count tree.
+### `GET /:platform/:owner/:repo`
+
+Returns the full line-count tree, e.g. `/github/modrinth/code` or `/codeberg/ziglang/zig`.
 
 Query params:
 - `branch` — defaults to the repo's default branch.
@@ -46,16 +50,21 @@ Query params:
 
 Folders are nested objects with the same shape; files are plain numbers (their line count).
 
-### `GET /:owner/:repo/badge`
+### `GET /:platform/:owner/:repo/badge`
 
 Same query params as above, plus `format=human` to abbreviate the count (e.g. `1.2k`). Returns a
 [shields.io endpoint badge](https://shields.io/badges/endpoint-badge) payload:
 
 ```json
-{ "schemaVersion": 1, "label": "lines", "message": "42", "cacheSeconds": 900 }
+{ "schemaVersion": 1, "label": "lines", "message": "42", "cacheSeconds": 86400 }
 ```
+
+## Caching
+
+Results are cached in-memory per `(platform, owner, repo, branch, filter)` for 24 hours, unbounded
+in size. The cache is process-local and lost on restart — nothing is persisted to disk.
 
 ## Notes
 
-This is intentionally minimal: no caching, no rate limiting, no repo size limits, and binary files
-are skipped via a simple null-byte heuristic rather than full content-type detection.
+This is intentionally minimal: no rate limiting, no repo size limits, and binary files are skipped
+via a simple null-byte heuristic rather than full content-type detection.
