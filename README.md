@@ -11,8 +11,6 @@ Bitbucket.
 
 ## 📖 API
 
-`:platform` is `github`, `codeberg`, `gitlab`, or `bitbucket`.
-
 ### `GET /`
 
 Returns server status.
@@ -20,6 +18,8 @@ Returns server status.
 ### `GET /:platform/:owner/:repo`
 
 Returns the full line-count tree, e.g. `/github/modrinth/code` or `/codeberg/ziglang/zig`.
+
+Replace `:platform` with `github`, `codeberg`, `gitlab`, or `bitbucket`.
 
 Query params:
 
