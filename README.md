@@ -5,6 +5,7 @@ Bitbucket.
 
 [![GitHub Issues](https://img.shields.io/github/issues/creeperkatze/loc)](https://github.com/creeperkatze/loctopus/issues)
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/creeperkatze/loc)](https://github.com/creeperkatze/loctopus/pulls)
+[![Lines of code](https://img.shields.io/endpoint?url=https://loctopus.creeperkatze.dev/github/creeperkatze/loctopus/badge%3Fformat%3Dhuman)](https://github.com/creeperkatze/loctopus)
 [![GitHub Repo stars](https://img.shields.io/github/stars/creeperkatze/loc?style=flat)](https://github.com/creeperkatze/loctopus/stargazers)
 
 [🐳 Package](https://github.com/creeperkatze/loctopus/pkgs/container/loctopus)
