@@ -49,6 +49,14 @@ Same query params as above, plus `format=human` to abbreviate the count (e.g. `1
 { "schemaVersion": 1, "label": "lines", "message": "42", "cacheSeconds": 86400 }
 ```
 
+Example:
+
+[![Lines of code](https://img.shields.io/endpoint?url=https://loctopus.creeperkatze.dev/github/creeperkatze/loctopus/badge%3Fformat%3Dhuman)](https://github.com/creeperkatze/loctopus)
+
+```md
+[![Lines of code](https://img.shields.io/endpoint?url=https://loctopus.creeperkatze.dev/github/creeperkatze/loctopus/badge%3Fformat%3Dhuman)](https://github.com/creeperkatze/loctopus)
+```
+
 ## 🚀 Run
 
 ```bash
