@@ -181,12 +181,14 @@ async fn get_locs_cached(
 
         let result = compute_locs_blocking(reader, filters).await?;
 
-        let ttfb_ms = first_byte_at.get().map(|t| t.duration_since(start).as_millis());
+        let ttfb_ms = first_byte_at
+            .get()
+            .map_or(0, |t| t.duration_since(start).as_millis());
         tracing::info!(
             platform = platform.as_str(), %owner, %repo, %branch,
             loc = result.loc,
             bytes = bytes_read.load(Ordering::Relaxed),
-            ttfb_ms = ?ttfb_ms,
+            ttfb_ms,
             duration_ms = start.elapsed().as_millis(),
             cached = false,
             "streamed and processed tarball"
