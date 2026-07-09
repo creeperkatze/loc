@@ -3,32 +3,11 @@
 A minimal backend counting lines of code for a public repo on GitHub, Codeberg, GitLab, or
 Bitbucket.
 
-[![GitHub Issues](https://img.shields.io/github/issues/creeperkatze/loc)](https://github.com/creeperkatze/loc/issues)
-[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/creeperkatze/loc)](https://github.com/creeperkatze/loc/pulls)
-[![GitHub Repo stars](https://img.shields.io/github/stars/creeperkatze/loc?style=flat)](https://github.com/creeperkatze/loc/stargazers)
+[![GitHub Issues](https://img.shields.io/github/issues/creeperkatze/loc)](https://github.com/creeperkatze/loctopus/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/creeperkatze/loc)](https://github.com/creeperkatze/loctopus/pulls)
+[![GitHub Repo stars](https://img.shields.io/github/stars/creeperkatze/loc?style=flat)](https://github.com/creeperkatze/loctopus/stargazers)
 
-[🐳 Package](https://github.com/creeperkatze/loc/pkgs/container/loctopus)
-
-It downloads the repo's source as a tarball, walks the files, and builds a directory tree of line
-counts broken down by file extension.
-
-## 🚀 Run
-
-```bash
-cargo run
-```
-
-For dev mode with auto-reload on file changes (rebuilds and restarts the server whenever you save):
-
-```bash
-cargo install cargo-watch  # one-time
-cargo dev
-```
-
-Listens on `http://0.0.0.0:3000` by default (override with the `PORT` env var). Optionally set
-`GITHUB_TOKEN` / `CODEBERG_TOKEN` / `GITLAB_TOKEN` / `BITBUCKET_TOKEN` to raise API rate limits and
-access private repos you have access to. Set `RUST_LOG=debug` for more verbose logging (defaults to
-`info`).
+[🐳 Package](https://github.com/creeperkatze/loctopus/pkgs/container/loctopus)
 
 ## 📖 API
 
@@ -43,22 +22,23 @@ Returns server status.
 Returns the full line-count tree, e.g. `/github/modrinth/code` or `/codeberg/ziglang/zig`.
 
 Query params:
+
 - `branch`: defaults to the repo's default branch.
 - `filter`: comma-separated regexes matched against each file's extension key (e.g. `.ts$,.tsx$`)
   to only count matching files.
 
 ```json
 {
-  "loc": 42,
-  "locByLangs": { ".rs": 40, "Dockerfile": 2 },
-  "children": {
-    "main.rs": 40,
-    "Dockerfile": 2
-  }
+    "loc": 42,
+    "locByLangs": { ".rs": 40, "Dockerfile": 2 },
+    "children": {
+        "main.rs": 40,
+        "Dockerfile": 2
+    }
 }
 ```
 
-Folders are nested objects with the same shape; files are plain numbers (their line count).
+Folders are nested objects with the same shape, files are plain numbers (their line count).
 
 ### `GET /:platform/:owner/:repo/badge`
 
@@ -69,6 +49,23 @@ Same query params as above, plus `format=human` to abbreviate the count (e.g. `1
 { "schemaVersion": 1, "label": "lines", "message": "42", "cacheSeconds": 86400 }
 ```
 
+## 🚀 Run
+
+```bash
+cargo run
+```
+
+For dev mode with auto-reload on file changes:
+
+```bash
+cargo dev
+```
+
+Listens on `http://0.0.0.0:3000` by default (override with the `PORT` env var). Optionally set
+`GITHUB_TOKEN` / `CODEBERG_TOKEN` / `GITLAB_TOKEN` / `BITBUCKET_TOKEN` to raise API rate limits and
+access private repos you have access to. Set `RUST_LOG=debug` for more verbose logging (defaults to
+`info`).
+
 ## 🐳 Deploy
 
 Published to GHCR on every `v*` tag push. On your VPS:
@@ -77,14 +74,14 @@ Published to GHCR on every `v*` tag push. On your VPS:
 
 ```yaml
 services:
-  loctopus:
-    image: ghcr.io/creeperkatze/loctopus:latest
-    restart: unless-stopped
-    env_file: .env
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./data:/app/data
+    loctopus:
+        image: ghcr.io/creeperkatze/loctopus:latest
+        restart: unless-stopped
+        env_file: .env
+        ports:
+            - "3000:3000"
+        volumes:
+            - ./data:/app/data
 ```
 
 **2. Create `.env`** (see [.env.example](.env.example), every var is optional)
